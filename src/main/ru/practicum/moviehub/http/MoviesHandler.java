@@ -201,5 +201,7 @@ public class MoviesHandler extends BaseHttpHandler {
         return errors;
     }
 
-    enum Endpoint {GET_MOVIES, POST_MOVIE, GET_MOVIE_BY_ID, DELETE_MOVIE, GET_MOVIE_BY_YEAR, UNKNOWN}
+    enum Endpoint {
+        GET_MOVIES, POST_MOVIE, GET_MOVIE_BY_ID, DELETE_MOVIE, GET_MOVIE_BY_YEAR, UNKNOWN
+    }
 }
