@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class MoviesHandler extends BaseHttpHandler {
     private final MoviesStore moviesStore;
@@ -25,12 +26,19 @@ public class MoviesHandler extends BaseHttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        Endpoint endpoint = getEndpoint(ex.getRequestURI().getPath(), ex.getRequestMethod());
+        Endpoint endpoint = getEndpoint(
+                ex.getRequestURI().getPath(),
+                ex.getRequestMethod(),
+                ex.getRequestURI().getQuery()
+        );
 
         switch (endpoint) {
             case GET_MOVIES -> handleGetFilms(ex);
             case POST_MOVIE -> handlePostFilm(ex);
-            default -> sendJson(ex, 404, "Такого эндпоинта не существует");
+            case GET_MOVIE_BY_ID -> handleGetFilmById(ex);
+            case DELETE_MOVIE -> handleDeleteFilm(ex);
+            case GET_MOVIE_BY_YEAR -> handleGetFilmByYear(ex);
+            default -> sendJson(ex, 405, "Такого эндпоинта не существует");
         }
     }
 
@@ -72,15 +80,92 @@ public class MoviesHandler extends BaseHttpHandler {
         sendJson(ex, 201, gson.toJson(savedMovie));
     }
 
-    private Endpoint getEndpoint(String requestPath, String requestMethod) {
+    private void handleGetFilmById(HttpExchange ex) throws IOException {
+        Optional<Integer> idOpt = getId(ex);
+        if (idOpt.isEmpty()) {
+            ErrorResponse error = new ErrorResponse("Некорректный ID",
+                    List.of("ID, указанный в пути запроса, не число"));
+            sendJson(ex, 400, gson.toJson(error));
+            return;
+        }
+
+        int id = idOpt.get();
+        Movie movie = moviesStore.findById(id);
+        if (movie == null) {
+            ErrorResponse error = new ErrorResponse("Фильм не найден",
+                    List.of("Фильм, по указанному в запросе id, не найден"));
+            sendJson(ex, 404, gson.toJson(error));
+            return;
+        }
+
+        sendJson(ex, 200, gson.toJson(movie));
+    }
+
+    private void handleDeleteFilm(HttpExchange ex) throws IOException {
+        Optional<Integer> idOpt = getId(ex);
+        if (idOpt.isEmpty()) {
+            ErrorResponse error = new ErrorResponse("Некорректный ID",
+                    List.of("ID, указанный в пути запроса, не число"));
+            sendJson(ex, 400, gson.toJson(error));
+            return;
+        }
+
+        int id = idOpt.get();
+        boolean isDeleted = moviesStore.deleteMovie(id);
+        if (!isDeleted) {
+            ErrorResponse error = new ErrorResponse("Фильм не найден",
+                    List.of("Фильм, по указанному в запросе id, не найден"));
+            sendJson(ex, 404, gson.toJson(error));
+            return;
+        }
+        sendNoContent(ex, 204);
+    }
+
+    private void handleGetFilmByYear(HttpExchange ex) throws IOException {
+        String[] queryParts = ex.getRequestURI().getQuery().split("=");
+        int year;
+        try {
+            year = Integer.parseInt(queryParts[1]);
+        } catch (IndexOutOfBoundsException | NumberFormatException e) {
+            ErrorResponse error = new ErrorResponse("Некорректный параметр запроса — 'year'",
+                    List.of("year, указанный в параметрах запроса, не число"));
+            sendJson(ex, 400, gson.toJson(error));
+            return;
+        }
+
+        sendJson(ex, 200, gson.toJson(moviesStore.findByYear(year)));
+    }
+
+    private Optional<Integer> getId(HttpExchange ex) {
+        String[] pathParts = ex.getRequestURI().getPath().split("/");
+        try {
+            return Optional.of(Integer.parseInt(pathParts[2]));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private Endpoint getEndpoint(String requestPath, String requestMethod, String query) {
         String[] pathParts = requestPath.split("/");
 
         if (pathParts.length == 2 && pathParts[1].equals("movies")) {
             if (requestMethod.equals("GET")) {
+                if (query != null && query.startsWith("year=")) {
+                    return Endpoint.GET_MOVIE_BY_YEAR;
+                }
                 return Endpoint.GET_MOVIES;
             }
             if (requestMethod.equals("POST")) {
                 return Endpoint.POST_MOVIE;
+            }
+        }
+
+        if (pathParts.length == 3 && pathParts[1].equals("movies")) {
+            if (requestMethod.equals("GET")) {
+                return Endpoint.GET_MOVIE_BY_ID;
+            }
+            if (requestMethod.equals("DELETE")) {
+                return Endpoint.DELETE_MOVIE;
             }
         }
         return Endpoint.UNKNOWN;

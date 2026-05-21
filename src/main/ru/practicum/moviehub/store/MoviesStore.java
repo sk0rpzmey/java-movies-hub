@@ -28,16 +28,18 @@ public class MoviesStore {
         id = 1;
         moviesStore.clear();
     }
-//
-//    public Movie findById(int id) {
-//        return null;
-//    }
-//
-//    public boolean deleteMovie(int id) {
-//        return false;
-//    }
-//
-//    public List<Movie> findByYear(int year) {
-//        return null;
-//    }
+
+    public Movie findById(int id) {
+        return moviesStore.get(id);
+    }
+
+    public boolean deleteMovie(int id) {
+        return moviesStore.remove(id) != null;
+    }
+
+    public List<Movie> findByYear(int year) {
+        return moviesStore.values().stream()
+                .filter(movie -> movie.year() == year)
+                .toList();
+    }
 }

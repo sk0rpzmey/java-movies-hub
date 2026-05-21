@@ -200,7 +200,7 @@ public class MoviesApiTest {
         // Должен вернуть(Название не должно быть пустым)
         assertTrue(body.getDetails().contains("Название не должно быть пустым"));
 
-        // Проверка отсутсвия фильма
+        // Проверка отсутствия фильма
         assertEquals(0, moviesStore.getAll().size(), "Ожидается пустое хранилище");
     }
 
@@ -238,7 +238,7 @@ public class MoviesApiTest {
         //Проверка соответствия ошибки
         ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
         assertEquals("Ошибка валидации", body.getError());
-        // Должен вернуть(Название не должно быть пустым)
+        // Должен вернуть(Название не должно быть длиной больше ста символов)
         assertTrue(body.getDetails().contains("Название не должно быть длиной больше ста символов"));
 
         // Проверка отсутсвия фильма
@@ -276,11 +276,11 @@ public class MoviesApiTest {
         //Проверка соответствия ошибки
         ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
         assertEquals("Ошибка валидации", body.getError());
-        // Должен вернуть(Название не должно быть пустым)
+        // Должен вернуть(Год должен быть между 1888 и (текущий год + 1))
         int currentYear = Year.now().getValue();
         assertTrue(body.getDetails().contains("Год должен быть между 1888 и " + (currentYear + 1)));
 
-        // Проверка отсутсвия фильма
+        // Проверка отсутствия фильма
         assertEquals(0, moviesStore.getAll().size(), "Ожидается пустое хранилище");
     }
 
@@ -312,7 +312,7 @@ public class MoviesApiTest {
         assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
                 "Content-Type должен содержать формат данных и кодировку");
 
-        // Проверка отсутсвия фильма
+        // Проверка отсутствия фильма
         assertEquals(0, moviesStore.getAll().size(), "Ожидается пустое хранилище");
     }
 
@@ -347,11 +347,303 @@ public class MoviesApiTest {
         //Проверка соответствия ошибки
         ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
         assertEquals("Некорректный JSON", body.getError());
-        // Должен вернуть(Название не должно быть пустым)
+        // Должен вернуть(Тело запроса не является валидным JSON)
         assertTrue(body.getDetails().contains("Тело запроса не является валидным JSON"));
 
-        // Проверка отсутсвия фильма
+        // Проверка отсутствия фильма
         assertEquals(0, moviesStore.getAll().size(), "Ожидается пустое хранилище");
+    }
+
+    @Test
+    void getMovie_withCorrectId_returnMovie() throws Exception{
+        // Добавляю фильм напрямую
+        Movie movie = moviesStore.add(new Movie(0, "Film1", 1999));
+
+        // Объект GET-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies/" + movie.id()))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(200, resp.statusCode(), "GET /movies/{id} должен вернуть 200");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        // Проверка правильности полей тестового фильма
+        Movie actualMovie = gson.fromJson(resp.body().trim(), Movie.class);
+        assertEquals(movie.title(), actualMovie.title());
+        assertEquals(movie.id(), actualMovie.id());
+        assertEquals(movie.year(), actualMovie.year());
+    }
+
+    @Test
+    void getMovie_withIdNotExist_return404() throws Exception {
+
+        // Объект GET-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies/" + 1))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(404, resp.statusCode(), "GET /movies/{id} должен вернуть 404");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        //Проверка соответствия ошибки
+        ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
+        assertEquals("Фильм не найден", body.getError());
+        // Должен вернуть(Фильм, по указанному в запросе id, не найден)
+        assertTrue(body.getDetails().contains("Фильм, по указанному в запросе id, не найден"));
+    }
+
+    @Test
+    void getMovie_withNonNumericId_return400() throws Exception {
+        // Объект GET-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies/" + "id"))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(400, resp.statusCode(), "GET /movies/{id} должен вернуть 400");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        //Проверка соответствия ошибки
+        ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
+        assertEquals("Некорректный ID", body.getError());
+        // Должен вернуть(ID, указанный в пути запроса, не число)
+        assertTrue(body.getDetails().contains("ID, указанный в пути запроса, не число"));
+    }
+
+    @Test
+    void deleteMovie_withCorrectId_return204() throws Exception{
+        // Добавляю фильм напрямую
+        Movie movie = moviesStore.add(new Movie(0, "Film1", 1999));
+        moviesStore.add(new Movie(0, "Film2", 2000));
+
+        // Объект DELETE-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .DELETE()
+                .uri(URI.create(BASE + "/movies/" + movie.id()))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(204, resp.statusCode(), "DELETE /movies/{id} должен вернуть 204");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        // В хранилище должен остаться только один фильм
+        assertEquals(1, moviesStore.getAll().size(), "В хранилище должен остаться только один фильм");
+    }
+
+    @Test
+    void deleteMovie_withIdNotExist_return404() throws Exception{
+
+        // Объект DELETE-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .DELETE()
+                .uri(URI.create(BASE + "/movies/" + 1))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(404, resp.statusCode(), "DELETE /movies/{id} должен вернуть 404");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+
+        ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
+        assertEquals("Фильм не найден", body.getError());
+        // Должен вернуть(Фильм, по указанному в запросе id, не найден)
+        assertTrue(body.getDetails().contains("Фильм, по указанному в запросе id, не найден"));
+    }
+
+    @Test
+    void deleteMovie_withNonNumericId_return400() throws Exception{
+
+        // Объект DELETE-запроса на эндпоинт /movies
+        HttpRequest req = HttpRequest.newBuilder()
+                .DELETE()
+                .uri(URI.create(BASE + "/movies/" + "id"))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(400, resp.statusCode(), "DELETE /movies/{id} должен вернуть 400");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+
+        //Проверка соответствия ошибки
+        ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
+        assertEquals("Некорректный ID", body.getError());
+        // Должен вернуть(ID, указанный в пути запроса, не число)
+        assertTrue(body.getDetails().contains("ID, указанный в пути запроса, не число"));
+    }
+
+    @Test
+    void getMovieByYear_withAvailableYear_return200AndMovies() throws Exception {
+        moviesStore.add(new Movie(0, "Film1", 1999));
+        moviesStore.add(new Movie(0, "Film2", 2000));
+        moviesStore.add(new Movie(0, "Film3", 2000));
+
+        // Объект GET-запроса на эндпоинт /movies?year=2000
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies?year=2000"))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(200, resp.statusCode(), "GET /movies?year=YYYY должен вернуть 200");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        List<Movie> movies = gson.fromJson(resp.body().trim(), new ListOfMoviesTypeToken().getType());
+        assertEquals(2, movies.size(), "Должно быть список с двумя фильмами");
+    }
+
+    @Test
+    void getMovieByYear_withNotAvailableYear_return200AndEmptyList() throws Exception {
+        moviesStore.add(new Movie(0, "Film1", 1999));
+        moviesStore.add(new Movie(0, "Film2", 2000));
+        moviesStore.add(new Movie(0, "Film3", 2000));
+
+        // Объект GET-запроса на эндпоинт /movies?year=2000
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies?year=2005"))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(200, resp.statusCode(), "GET /movies?year=YYYY должен вернуть 200");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        List<Movie> movies = gson.fromJson(resp.body().trim(), new ListOfMoviesTypeToken().getType());
+        assertEquals(0, movies.size(), "Должно быть пустой список");
+    }
+
+    @Test
+    void getMovieByYear_withNonNumericYear_return400() throws Exception {
+        moviesStore.add(new Movie(0, "Film1", 1999));
+        moviesStore.add(new Movie(0, "Film2", 2000));
+        moviesStore.add(new Movie(0, "Film3", 2000));
+
+        // Объект GET-запроса на эндпоинт /movies?year=2000
+        HttpRequest req = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(BASE + "/movies?year=twothousandfive"))
+                .build();
+
+        // Обработчик тела запроса
+        HttpResponse.BodyHandler<String> responseBodyHandler =
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8);
+
+        // Ответ
+        HttpResponse<String> resp = client.send(req, responseBodyHandler);
+
+        // Проверка кода ответа
+        assertEquals(400, resp.statusCode(), "GET /movies?year=YYYY должен вернуть 400");
+
+        // Проверка заголовка Content-Type
+        String contentTypeHeaderValue =
+                resp.headers().firstValue("Content-Type").orElse("");
+        assertEquals("application/json; charset=UTF-8", contentTypeHeaderValue,
+                "Content-Type должен содержать формат данных и кодировку");
+
+        ErrorResponse body = gson.fromJson(resp.body().trim(), ErrorResponse.class);
+        assertEquals("Некорректный параметр запроса — 'year'", body.getError());
+        // Должен вернуть(year, указанный в параметрах запроса, не число)
+        assertTrue(body.getDetails().contains("year, указанный в параметрах запроса, не число"));
     }
 }
 
