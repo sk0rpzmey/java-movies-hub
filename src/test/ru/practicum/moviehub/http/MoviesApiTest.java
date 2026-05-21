@@ -355,7 +355,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void getMovie_withCorrectId_returnMovie() throws Exception{
+    void getMovie_withCorrectId_returnMovie() throws Exception {
         // Добавляю фильм напрямую
         Movie movie = moviesStore.add(new Movie(0, "Film1", 1999));
 
@@ -452,7 +452,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void deleteMovie_withCorrectId_return204() throws Exception{
+    void deleteMovie_withCorrectId_return204() throws Exception {
         // Добавляю фильм напрямую
         Movie movie = moviesStore.add(new Movie(0, "Film1", 1999));
         moviesStore.add(new Movie(0, "Film2", 2000));
@@ -484,7 +484,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void deleteMovie_withIdNotExist_return404() throws Exception{
+    void deleteMovie_withIdNotExist_return404() throws Exception {
 
         // Объект DELETE-запроса на эндпоинт /movies
         HttpRequest req = HttpRequest.newBuilder()
@@ -516,7 +516,7 @@ public class MoviesApiTest {
     }
 
     @Test
-    void deleteMovie_withNonNumericId_return400() throws Exception{
+    void deleteMovie_withNonNumericId_return400() throws Exception {
 
         // Объект DELETE-запроса на эндпоинт /movies
         HttpRequest req = HttpRequest.newBuilder()

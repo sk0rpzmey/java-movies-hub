@@ -97,7 +97,6 @@ public class MoviesHandler extends BaseHttpHandler {
             sendJson(ex, 404, gson.toJson(error));
             return;
         }
-
         sendJson(ex, 200, gson.toJson(movie));
     }
 

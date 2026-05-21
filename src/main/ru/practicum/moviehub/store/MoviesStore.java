@@ -11,7 +11,7 @@ public class MoviesStore {
     private int id = 1;
 
     public MoviesStore() {
-         moviesStore = new HashMap<>();
+        moviesStore = new HashMap<>();
     }
 
     public Movie add(Movie movie) {
