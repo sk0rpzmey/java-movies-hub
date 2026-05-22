@@ -18,6 +18,7 @@ import java.util.Optional;
 public class MoviesHandler extends BaseHttpHandler {
     private final MoviesStore moviesStore;
     private final Gson gson;
+    private static final int MIN_YEAR = 1888;
 
     public MoviesHandler(MoviesStore moviesStore) {
         this.moviesStore = moviesStore;
@@ -38,7 +39,7 @@ public class MoviesHandler extends BaseHttpHandler {
             case GET_MOVIE_BY_ID -> handleGetFilmById(ex);
             case DELETE_MOVIE -> handleDeleteFilm(ex);
             case GET_MOVIE_BY_YEAR -> handleGetFilmByYear(ex);
-            default -> sendJson(ex, 405, "Такого эндпоинта не существует");
+            case UNKNOWN -> sendJson(ex, 405, "Такого эндпоинта не существует");
         }
     }
 
@@ -121,11 +122,19 @@ public class MoviesHandler extends BaseHttpHandler {
     }
 
     private void handleGetFilmByYear(HttpExchange ex) throws IOException {
-        String[] queryParts = ex.getRequestURI().getQuery().split("=");
+        String query = ex.getRequestURI().getQuery();
+        String queryParam = getQueryParam(query, "year");
+        if (queryParam == null) {
+            ErrorResponse error = new ErrorResponse("Некорректный параметр запроса — 'year'",
+                    List.of("year, указанный в параметрах запроса, не число"));
+            sendJson(ex, 400, gson.toJson(error));
+            return;
+        }
+
         int year;
         try {
-            year = Integer.parseInt(queryParts[1]);
-        } catch (IndexOutOfBoundsException | NumberFormatException e) {
+            year = Integer.parseInt(queryParam);
+        } catch (NumberFormatException e) {
             ErrorResponse error = new ErrorResponse("Некорректный параметр запроса — 'year'",
                     List.of("year, указанный в параметрах запроса, не число"));
             sendJson(ex, 400, gson.toJson(error));
@@ -133,6 +142,22 @@ public class MoviesHandler extends BaseHttpHandler {
         }
 
         sendJson(ex, 200, gson.toJson(moviesStore.findByYear(year)));
+    }
+
+    private String getQueryParam(String query, String paramName) {
+        if (query == null) {
+            return null;
+        }
+
+        // Если нашел нужный параметр запроса, то возвращаю его значение
+        String param = paramName + "=";
+        for (String part : query.split("&")) {
+            if (part.startsWith(param)) {
+                return part.substring(param.length());
+            }
+        }
+
+        return null;
     }
 
     private Optional<Integer> getId(HttpExchange ex) {
@@ -171,7 +196,9 @@ public class MoviesHandler extends BaseHttpHandler {
     }
 
     private Movie parseMovie(InputStream inputStream) throws IOException {
-        return gson.fromJson(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8), Movie.class);
+        try (inputStream) {
+            return gson.fromJson(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8), Movie.class);
+        }
     }
 
     // Метод для проверки заголовка Content-type
@@ -195,8 +222,8 @@ public class MoviesHandler extends BaseHttpHandler {
         }
 
         int currentYear = Year.now().getValue();
-        if (year < 1888 || year >= currentYear + 1) {
-            errors.add("Год должен быть между 1888 и " + (currentYear + 1));
+        if (year < MIN_YEAR || year >= currentYear + 1) {
+            errors.add("Год должен быть между " + MIN_YEAR + " и " + (currentYear + 1));
         }
         return errors;
     }
